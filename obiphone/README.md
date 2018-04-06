@@ -39,7 +39,7 @@ Firmware file starts with a 0x400 byte header, which describes the other section
 230 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
-Each section begins with a 0x40 byte header, followed by the section's payload: an uncompressed size in bytes and a zlib stream
+Each section begins with a 0x40 byte header, followed by the section's payload: an uncompressed size in bytes and a zlib stream (see pack.sh)
 
 ```
 103e1f0 00 00 01 ba 00 00 00 00 00 00 00 00 00 00 00 00  section start constant
