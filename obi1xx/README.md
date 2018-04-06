@@ -49,7 +49,7 @@ raw deflate stream + little endian CRC32 + little endian length of uncompressed 
 These can be inflated with `binwalk -X` and re-deflated with `ziprisc.exe`
 
 
-#fw preamble at 0xF3CEE
+# fw preamble at 0xF3CEE
 ```
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 E3 93 51 9F EC 17 0C 8D 23 E7 32 E1 BF E8 1E 53  md5 from F3CEE-EOF with this zerod
@@ -69,7 +69,7 @@ E8 1A D7 18 40 58 22 D1 23 BA CE F2 DE 7B 6C C3  md5 of "Goodbye! Reboot Now" + 
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 ```
 
-#table1
+# table1
 ```
 00 00 00 01 00 7C 06 84 02 4F 00 00 00 00 00 52  memcpy(0x7C0684, 0x024F0000, 52*4)
 00 00 00 08 00 7C 07 CC 00 00 00 00 00 00 00 00  r4 = 7C07CC --> 0x1A44C2    00 00 00 01 00 14 00 00 
@@ -165,7 +165,7 @@ E8 1A D7 18 40 58 22 D1 23 BA CE F2 DE 7B 6C C3  md5 of "Goodbye! Reboot Now" + 
 00 00 00 03 40 04 FC 21 00 00 00 00 00 00 00 00  call 0x4004FC21*4=13F084 = code in f4126 @ 7F084
 ```
 
-#table 2
+# table 2
 ```
 00 00 00 01 00 7F CC 50 02 4F 00 00 00 00 00 52  memcpy(0x7FCC50, 0x024F0000, 52*4)
 00 00 00 08 00 7F CD 98 00 00 00 00 00 00 00 00  r4 = 7fcd98 --> 0x00200a8e    00 00 00 01 00 13 00 00, uncompressed len=CD0
