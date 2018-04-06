@@ -1,0 +1,11 @@
+--- ports/sysdeps/unix/sysv/linux/arm/ioperm.c.orig	2018-03-18 08:22:40.494855736 -0500
++++ ports/sysdeps/unix/sysv/linux/arm/ioperm.c	2018-03-18 08:22:48.514445366 -0500
+@@ -45,7 +45,7 @@
+ #include <sys/mman.h>
+ 
+ #include <linux/version.h>
+-#include <asm/page.h>
++//#include <asm/page.h>
+ #include <sys/sysctl.h>
+ 
+ #define PATH_ARM_SYSTYPE	"/etc/arm_systype"

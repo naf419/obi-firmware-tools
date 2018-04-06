@@ -39,7 +39,7 @@ Firmware file starts with a 0x400 byte header, which describes the other section
 230 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
-Each section begins with a 0x40 byte header, followed by the section's payload: an uncompressed size in bytes and a zlib stream
+Each section begins with a 0x40 byte header, followed by the section's payload: a big-endian uncompressed size in bytes and a zlib stream
 
 ```
 103e1f0 00 00 01 ba 00 00 00 00 00 00 00 00 00 00 00 00  section start constant
@@ -48,3 +48,15 @@ Each section begins with a 0x40 byte header, followed by the section's payload: 
 103e220 04 01 01 00 f0 e1 03 01 00 00 80 00 c4 5a d8 00  type, section start position in fw file, (temp) decode location, section length (including 0x40 header)
 ```
 
+ubifs partitions can be extracted to local filesystem via:
+```
+sudo ubireader_extract_files -k 2CCD6C.obi.ubifs -o ubifs-obi-2CCD6C
+```
+
+and un-extracted from the filesystem via:
+```
+# NOTE: max_leb_cnt (-c) option is different for each image. determined from: 
+# ubireader_display_info 2CCD6C.obi.ubifs | grep max_leb_cnt
+sudo mkfs.ubifs -F -m 2048 -e 126976 -c 150 -x zlib -r ubifs-rootfs-103E230 -o 103E234.rootfs.ubifs.mod
+sudo mkfs.ubifs -F -m 2048 -e 126976 -c 56 -x zlib -r ubifs-obi-2CCD6C -o 2CCD6C.obi.ubifs.mod
+```
