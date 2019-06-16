@@ -79,16 +79,51 @@ int main(int argc, char** argv)
     return 0;
 }
 
+unsigned long djb2(const char* str)
+{
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
+
+void addHash(map<string, string>& m, const char* val)
+{
+    char hash[9];
+    sprintf(hash, "%08x", djb2(val));
+    m[hash] = val;
+
+    if (debug)
+        printf("%s = %s\n", hash, val);
+}
+
 map<string,string> init_map() {
     map<string,string> m;
-    //manual
-    m["f5e1d7f1"] = "DHCP/DefaultGateway";
-    m["4d56eeaf"] = "SP1.X_GApiAccessToken";
-    m["eba2222d"] = "SP1.X_GApiAccessAndRefreshToken";
-    m["e261b32a"] = "SP1.X_GApiRefreshToken";
-    m["8a623441"] = "SP1.X_GApiInitAccessToken";
-    m["63a81ab6"] = "SP1.GVSIP";
-    //auto
+    //hidden or non-backup params
+    addHash(m, "VoiceService.1.VoiceProfile.1.GVSIP");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiRefreshToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiInitAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GoogleClientInfo");
+    addHash(m, "VoiceService.1.VoiceProfile.2.GVSIP");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiRefreshToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiInitAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GoogleClientInfo");
+    addHash(m, "VoiceService.1.VoiceProfile.3.GVSIP");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiRefreshToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiInitAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GoogleClientInfo");
+    addHash(m, "VoiceService.1.VoiceProfile.4.GVSIP");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiRefreshToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiInitAccessToken");
+    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GoogleClientInfo");
+    //params in backup
     #include "param_dump_keys.h"
     return m;
 };
@@ -148,7 +183,8 @@ int print_param(unsigned char* p)
 void print_params(unsigned char* plaintext, int payload_len)
 {
     unsigned char* current = plaintext;
-    while (current < plaintext + payload_len && current[0] != 0xff)
+    while (current < plaintext + payload_len && 
+           !(current[0] == 0xFF && current[1] == 0xFF && current[2] == 0xFF && current[3] == 0xFF))
     {
         current += print_param(current);
         //int len = 8 + (current[4] | p[current] << 8));

@@ -1,2 +1,2 @@
 // generate with:
-// find /path/to/obi/webfile -name \*.xml -exec xsltproc --stringparam filename {} param_dump_keys.xslt {} \; > param_dump_keys.h
+// xsltproc param_dump_keys.xslt /path/to/obi/webfile/backup.xml > param_dump_keys.h
