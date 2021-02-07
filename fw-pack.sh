@@ -2,6 +2,7 @@
 
 src=$1
 dest=$2
+keep_sig=$3
 
 #determine number of sections from header
 count_bytes=`hexdump -n 4 -s $((0x80)) -e '4/1 "%02x"' $src/0-header | tac -rs ..`
@@ -44,9 +45,11 @@ for i in `seq 1 $count_int`; do
  cat $src/$i-header.tmp >> $dest
  cat $body >> $dest
 
- #copy section data to fw header
- echo $md5_payload | xxd -p -r | dd of=$dest bs=1 seek=$((0xc0+($i-1)*0x40+0x10)) count=16 conv=notrunc
- dd if=$src/$i-header.tmp of=$dest bs=1 skip=$((0x30)) seek=$((0xc0+($i-1)*0x40)) count=16 conv=notrunc
+ if [[ "$keep_sig" == "" ]]; then
+  #copy section data to fw header
+  echo $md5_payload | xxd -p -r | dd of=$dest bs=1 seek=$((0xc0+($i-1)*0x40+0x10)) count=16 conv=notrunc
+  dd if=$src/$i-header.tmp of=$dest bs=1 skip=$((0x30)) seek=$((0xc0+($i-1)*0x40)) count=16 conv=notrunc
+ fi
 
  current=$(($current+$size))
 done
@@ -54,6 +57,10 @@ done
 #update fw header with total bytes
 total_bytes=`printf "%08x" $current | tac -rs ..`
 echo $total_bytes | xxd -p -r | dd of=$dest bs=1 seek=$((0x84)) conv=notrunc >/dev/null
+
+if [[ "$keep_sig" != "" ]]; then
+  echo -n $keep_sig | dd of=$dest bs=1 seek=$((0x3C0)) count=32 conv=notrunc >/dev/null
+fi
 
 #relcalc fw header md5
 echo -n "Goodbye! Reboot Now" > $src/0-header.tmp

@@ -39,13 +39,15 @@ Firmware file starts with a 0x400 byte header, which describes the other section
 230 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00
 ```
 
-Each section begins with a 0x40 byte header, followed by the section's payload: a big-endian uncompressed size in bytes and a zlib stream (see pack.sh):
+Each section begins with a 0x40 byte header, followed by the section's payload. Payload composition is based on the zlib_flag:
+- zlib_flag=0 means raw bytes
+- zlib_flag=1 means a big-endian uncompressed size in bytes followed by a zlib stream (see pack.sh):
 
 ```
 103e1f0 00 00 01 ba 00 00 00 00 00 00 00 00 00 00 00 00  section start constant
 103e200 11 88 ba 63 60 9d 58 f9 14 93 e8 ee 79 22 08 bf  md5 of section payload
 103e210 ef 89 2e 09 d2 fa ac 0c b3 c9 b1 bd e7 90 d5 f2  md5 of "Goodbye! Reboot Now" + section header with this md5 zerod out + section payload
-103e220 04 01 01 00 f0 e1 03 01 00 00 80 00 c4 5a d8 00  type, section start position in fw file, (temp) decode location, section length (including 0x40 header)
+103e220 04 01 01 00 f0 e1 03 01 00 00 80 00 c4 5a d8 00  (0x0=type, 0x1=zlib_flag, 0x2=ubi_flag), section start position in fw file, decode location, section length (including 0x40 header)
 ```
 
 ubifs partitions can be extracted to local filesystem via:
