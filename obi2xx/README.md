@@ -13,11 +13,11 @@ Firmware file starts with a 0x400 byte header, which describes the other section
 090 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 0a0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 0b0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-0c0 08 00 00 00 00 04 00 00 00 00 2D 00 64 C3 12 00  type 8 (uboot image)
+0c0 08 00 00 00 00 04 00 00 00 00 2D 00 64 C3 12 00  type 8 (recovery kernel uboot image)
 0d0 31 4A 72 A9 22 39 CC 30 BE 81 7F 5D 74 80 B6 28  md5 of section payload
 0e0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 0f0 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-100 09 00 00 00 64 C7 12 00 00 00 E4 00 40 60 0B 00  type 9 (recovery squashfs)
+100 09 00 00 00 64 C7 12 00 00 00 E4 00 40 60 0B 00  type 9 (recovery rootfs squashfs)
 110 43 DE AB A9 19 FA A2 C4 B9 29 FC BB DA 89 02 BC 
 120 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 130 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -37,10 +37,20 @@ Firmware file starts with a 0x400 byte header, which describes the other section
 210 DD 4C EC F9 21 DE 88 63 F9 D5 A1 56 08 54 D7 12 
 220 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 230 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-240 02 00 00 00 C8 83 D4 00 00 00 00 00 F0 AA 03 00  type 2 (uboot config)
+240 02 00 00 00 C8 83 D4 00 00 00 00 00 F0 AA 03 00  type 2 (uboot)
 250 96 E4 B7 89 2D 2D 84 1E 32 9A 87 26 F5 8A 95 71 
 260 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 270 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+280 00 00 00 00 cd 28 8a 42 f3 cd 84 79 c0 4d 47 7d  unknown signed section...
+290 74 bb 69 1a 05 39 b7 08 37 a2 03 21 b1 fb f0 01 
+2a0 3d da 0f 57 a7 93 3a 64 c7 55 45 7a 35 f1 8b 63 
+2b0 54 1a fa 36 c4 01 59 3b 1c b4 70 0a 6e 99 99 60 
+2c0 51 31 bf 5e 58 a0 86 4f ff 7a 96 3b 2e ab 6e 67  signature of 0x400 header using obi pki key, len 0x100
+...
+3c0 00 00 00 00 ba f7 ce 69 a1 fc ee 7a 89 88 4f 61  unknown unsigned section...
+3d0 93 15 cc 0e 6a f3 33 16 db ed 8b 79 4f a8 bb 56 
+3e0 60 f6 56 18 66 7d 6e 5e 21 f8 00 48 81 77 2a 6c  another unknown signed section...
+3f0 da 67 63 24 dd 7c 8e 03 ab 30 56 0b 94 b9 06 7c 
 ```
 
 Each section begins with a 0x40 byte header followed by the section's payload
@@ -51,3 +61,11 @@ Each section begins with a 0x40 byte header followed by the section's payload
 420 8C A6 1A 2B 67 B7 43 11 EF 9F FC 44 E3 72 87 99  md5 of "Goodbye! Reboot Now" + section header with this md5 zerod out + section payload
 430 08 00 00 00 00 04 00 00 00 00 2D 00 64 C3 12 00  type, section start position in fw file, destination location in flash, section length (including 0x40 header)
 ```
+
+uboot segment consists of:
+- preloader header
+  - binary + footer length @ 0x4
+  - header length @ 0xC
+  - 1-byte simple checksum at 0x1C
+- uboot binary
+- footer is simple 4-byte checksum of binary
