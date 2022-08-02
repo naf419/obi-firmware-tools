@@ -1,34 +1,35 @@
-// arm-unknown-linux-gnueabi-g++ -static param_dump.c -o param_dump -l:/path/to/static/openssl/lib/libcrypto.a -I /path/to/static/openssl/include
+// arm-unknown-linux-gnueabi-gcc param_dump.c -o param_dump -L /path/to/openssl/lib -l crypto -I /path/to/openssl/include
 // *or*
-// g++ param_dump.c -o param_dump -lcrypto
+// gcc param_dump.c -o param_dump -lcrypto
+
+#define _GNU_SOURCE //for asprintf
 
 #include <stdio.h>
-#include <string>
-#include <map>
-#include <memory>
 #include <openssl/rc4.h>
 #include <openssl/bio.h>
-#include <cstring>
+#include <string.h>
+#include <stdlib.h>
 
-using namespace std;
+typedef struct Map Map;
+void map_init();
+const char* map_get(Map* table, const unsigned int key);
+int map_insert(Map* table, const unsigned int key, const char* value);
+void map_free(Map* table);
+Map m;
 
 void dump_section(FILE* file, size_t location, unsigned char mask[6]);
-map<string,string> init_map();
-string string_format(const string& format, size_t size_man, ...);
-int print_param(unsigned char* p);
-void print_params(unsigned char* plaintext, int payload_len);
 
 static const int OFFSET_MAC = 0x40100;
 static const int OFFSET_HWVERS = 0x40010;
 static const int OFFSET_PARAM_1 = 0x400000;
 static const int OFFSET_PARAM_2 = 0x420000;
 static const int OFFSET_PARAM_ZT = 0x460000;
-static bool debug = false;
-
-map<string,string> m = init_map();
+static int debug = 0;
 
 int main(int argc, char** argv)
 {
+    map_init();
+
     FILE* fd;
 
     if (argc < 2)
@@ -48,12 +49,12 @@ int main(int argc, char** argv)
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
            hw_vers[0], hw_vers[1], hw_vers[2], hw_vers[3]);
 
-    bool need_mask;
+    int need_mask;
     if (hw_vers[0] == 0x00 && hw_vers[1] == 0x01 && hw_vers[3] == 0xff) {
       if (hw_vers[2] == 0x04)
-        need_mask = true;
+        need_mask = 1;
       else if (hw_vers[2] == 0x00 || hw_vers[2] == 0x01 || hw_vers[2] == 0x02 || hw_vers[2] == 0x03)
-        need_mask = false;
+        need_mask = 0;
       else {
         printf("unknown hw_vers\n");
         return 1;
@@ -76,91 +77,26 @@ int main(int argc, char** argv)
     
     fclose(fd);
 
+    map_free(&m);
+
     return 0;
-}
-
-unsigned long djb2(const char* str)
-{
-    unsigned long hash = 5381;
-    int c;
-
-    while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-    return hash;
-}
-
-void addHash(map<string, string>& m, const char* val)
-{
-    char hash[9];
-    sprintf(hash, "%08x", djb2(val));
-    m[hash] = val;
-
-    if (debug)
-        printf("%s = %s\n", hash, val);
-}
-
-map<string,string> init_map() {
-    map<string,string> m;
-    //hidden or non-backup params
-    addHash(m, "VoiceService.1.VoiceProfile.1.GVSIP");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiRefreshToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GApiInitAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.1.X_GoogleClientInfo");
-    addHash(m, "VoiceService.1.VoiceProfile.2.GVSIP");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiRefreshToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GApiInitAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.2.X_GoogleClientInfo");
-    addHash(m, "VoiceService.1.VoiceProfile.3.GVSIP");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiRefreshToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GApiInitAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.3.X_GoogleClientInfo");
-    addHash(m, "VoiceService.1.VoiceProfile.4.GVSIP");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiRefreshToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GApiInitAccessToken");
-    addHash(m, "VoiceService.1.VoiceProfile.1.Line.4.X_GoogleClientInfo");
-    //params in backup
-    #include "param_dump_keys.h"
-    return m;
-};
-
-string string_format(const string& format, size_t size_man, ...)
-{
-    va_list args;
-    va_start(args, size_man);
-    //snprintf returns 20 instead of 8 for "%02x%02x%02x%02x". wtf?
-    size_t size = size_man + 1; //snprintf(nullptr, 0, format.c_str(), args) + 1;
-    char* buf = new char[size];
-    vsnprintf(buf, size, format.c_str(), args);
-    string str(buf, buf + size - 1);
-    delete buf;
-    return str;
-    va_end(args);
 }
 
 int print_param(unsigned char* p)
 {
-    string param_key = string_format("%02x%02x%02x%02x", 8,
-              p[3], p[2], p[1], p[0]);
+    unsigned int param_key = p[3] << 24 | p[2] << 16 | p[1] << 8 | p[0];
 
-    string param_name = param_key + " (\?\?\?)";
-    if (m.find(param_key) != m.end())
-    {
-        param_name = param_key + " (" + m[param_key] + ")";
-    }
+    const char* param_key_name = map_get(&m, param_key);
 
-    for (int i = 0; i < 4; ++i)
+    int i;
+    for (i = 0; i < 4; ++i)
          printf("%02x", p[i]);
     printf(" ");
-    for (int i = 4; i < 8; ++i)
+    for (i = 4; i < 8; ++i)
          printf("%02x", p[i]);
     printf(": ");
 
-    printf(param_name.c_str());
+    printf("%08x (%s)", param_key, param_key_name != NULL ? param_key_name : "");
     printf(" = ");
 
     int len = p[4] | p[5] << 8;
@@ -171,7 +107,7 @@ int print_param(unsigned char* p)
         printf("\"%.*s\"", len, &p[8]);
     } else {
         printf("0x");
-        for (int i = 0; i < len; ++i)
+        for (i = 0; i < len; ++i)
             printf("%02x", p[i+8]);
     }
 
@@ -187,8 +123,6 @@ void print_params(unsigned char* plaintext, int payload_len)
            !(current[0] == 0xFF && current[1] == 0xFF && current[2] == 0xFF && current[3] == 0xFF))
     {
         current += print_param(current);
-        //int len = 8 + (current[4] | p[current] << 8));
-        //current += len;
     }
 }
 
@@ -214,15 +148,16 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
                               section_header[13] << 8 |
                               section_header[12];
 
-    unsigned char* section_ciphertext = (unsigned char*) malloc(section_payload_len);
-    unsigned char* section_plaintext  = (unsigned char*) malloc(section_payload_len);
+    unsigned char* section_ciphertext = malloc(section_payload_len);
+    unsigned char* section_plaintext  = malloc(section_payload_len);
 
     current_loc += fread(section_ciphertext, 1, section_payload_len, file);
 
     memcpy(keytext, section_header, KEY_LENGTH);
 
     keytext[0] = 0xFD;
-    for (int i = 0; i < 6; ++i)
+    int i;
+    for (i = 0; i < 6; ++i)
         keytext[i] &= mask[i];
 
     RC4_KEY key;
@@ -233,13 +168,13 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
 
     if (debug) {
         printf("raw section header: ", SECTION_HEADER_LEN);
-        for (int i = 0; i < SECTION_HEADER_LEN; ++i)
+        for (i = 0; i < SECTION_HEADER_LEN; ++i)
           printf("%02x", section_header[i]);
         printf("\n");
 
         printf("raw section payload: ", section_payload_len);
         int checksum = 0;
-        for (int i = 0; i < section_payload_len; ++i) {
+        for (i = 0; i < section_payload_len; ++i) {
             printf("%02x", section_plaintext[i]);
             checksum += *((signed char*)&section_plaintext[i]);
         }
@@ -271,13 +206,13 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
 
         memcpy(keytext, param_header, KEY_LENGTH);
 
-        unsigned char* param_ciphertext = (unsigned char*) malloc(param_payload_len);
-        unsigned char* param_plaintext  = (unsigned char*) malloc(param_payload_len);
+        unsigned char* param_ciphertext = malloc(param_payload_len);
+        unsigned char* param_plaintext  = malloc(param_payload_len);
 
         fread(param_ciphertext, 1, param_payload_len, file);
 
         keytext[0] = 0xFE;
-        for (int i = 0; i < 6; ++i)
+        for (i = 0; i < 6; ++i)
           keytext[i] &= mask[i];
 
         RC4_KEY key;
@@ -289,13 +224,13 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
             printf("@ %08x\n", current_loc);
 
             printf("raw header: ", PARAM_HEADER_LEN);
-            for (int i = 0; i < PARAM_HEADER_LEN; ++i)
+            for (i = 0; i < PARAM_HEADER_LEN; ++i)
               printf("%02x", param_header[i]);
             printf("\n");
 
             printf("raw payload: ", param_payload_len);
             int checksum = 0;
-            for (int i = 0; i < param_payload_len; ++i) {
+            for (i = 0; i < param_payload_len; ++i) {
                 printf("%02x", param_plaintext[i]);
                 checksum += *((signed char*)&param_plaintext[i]);
             }
@@ -313,3 +248,130 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
     }
 }
 
+//simple hashmap, we dont need no stinkin c++ std::map
+#define MAP_BUCKETS 1024
+struct MapNode {
+    unsigned int key;
+    const char* value;
+    struct MapNode* next;
+};
+struct Map {
+    struct MapNode* buckets[MAP_BUCKETS];
+};
+
+unsigned int djb2(const char* str)
+{
+    unsigned int hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; // hash * 33 + c
+
+    return hash;
+}
+
+void addHash(Map* m, const char* val)
+{
+    map_insert(m, djb2(val), val);
+}
+
+void addHashIndexed(Map* m, const char* fmt, int i)
+{
+    char* tmp;
+    asprintf(&tmp, fmt, i);
+    map_insert(m, djb2(tmp), tmp);
+    free(tmp);
+}
+
+void map_init() {
+    //hidden or non-backup params
+    int i;
+    for (i = 1; i <= 4; ++i) {
+      addHashIndexed(&m, "VoiceService.1.VoiceProfile.%d.GVSIP", i);
+      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiRefreshToken", i);
+      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiAccessToken", i);
+      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiInitAccessToken", i);
+      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GoogleClientInfo", i);
+    }
+
+    addHash(&m, "X_DeviceManagement.License.LicenseURL");
+
+    addHash(&m, "SystemInfo.DisableBT");
+    addHash(&m, "SystemInfo.DisableFXO");
+    addHash(&m, "SystemInfo.DisableFXS1");
+    addHash(&m, "SystemInfo.DisableFXS2");
+    addHash(&m, "SystemInfo.DisableGVProv");
+    addHash(&m, "SystemInfo.DisableRouterCfg");
+    addHash(&m, "SystemInfo.SkypeDisable");
+    addHash(&m, "SystemInfo.X_GVAutoSetting");
+
+    addHash(&m, "VoiceService.1.X_OBP.Forbidden");
+    addHash(&m, "VoiceService.1.X_OBP.BasicLicense");
+    addHash(&m, "VoiceService.1.X_OBP.NoLicense");
+    addHash(&m, "VoiceService.1.X_OBP.License");
+
+    for (i = 0; i < 8; ++i) {
+        addHashIndexed(&m, "X_DeviceManagement.Provisioning.SPRM%d", i);
+        addHashIndexed(&m, "X_DeviceManagement.ITSPProvisioning.SPRM%d", i);
+    }
+
+    for (i = 4; i <=31; ++i) {
+        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.Value", i);
+        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.ExpandIn", i);
+        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.SyntaxCheckResult", i);
+    }
+
+    //params in backup
+    #include "param_dump_keys.h"
+};
+
+const char* map_get(Map* table, const unsigned int key)
+{
+    unsigned int bucket = key % MAP_BUCKETS;
+    struct MapNode* node;
+    node = table->buckets[bucket];
+    while(node) {
+        if(key == node->key)
+            return node->value;
+        node = node->next;
+    }
+    return NULL;
+}
+
+int map_insert(Map* table, const unsigned int key, const char* value)
+{
+    unsigned int bucket = key % MAP_BUCKETS;
+    struct MapNode** node;
+
+    char* value_copy;
+    asprintf(&value_copy, "%s", value); //free'd in map_free()
+
+    node = &table->buckets[bucket];
+    while(*node)
+        node = &(*node)->next;
+
+    *node = malloc(sizeof(struct MapNode)); //free'd in map_free()
+    if(*node == NULL)
+        return -1;
+    (*node)->next = NULL;
+    (*node)->key = key;
+    (*node)->value = value_copy;
+
+    return 0;
+}
+
+void map_free(Map* table)
+{
+    unsigned int bucket;
+    struct MapNode* node;
+    struct MapNode* next;
+    for (bucket = 0; bucket < MAP_BUCKETS; bucket++) {
+        node = table->buckets[bucket];
+        while(node) {
+            next = node->next;
+            free((void*)node->value);
+            free(node);
+            node = next;
+        }
+    }
+}

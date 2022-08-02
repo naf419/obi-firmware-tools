@@ -14,7 +14,7 @@ xmlns:fo="http://www.w3.org/1999/XSL/Format" >
  <xsl:template match="P/N">
   <xsl:param name="ParentObjectName"/>
 
-  <xsl:text>addHash(m, "</xsl:text>
+  <xsl:text>addHash(&amp;m, "</xsl:text>
   <xsl:value-of select="$ParentObjectName"/>
   <xsl:value-of select="text()"/>
   <xsl:text>");
