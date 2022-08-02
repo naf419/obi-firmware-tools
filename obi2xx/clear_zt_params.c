@@ -1,6 +1,6 @@
-//gcc clear_zt_params.c -o clear_zt_params
+//gcc clear_zt_params.c -o clear_zt_params -l crypto
 // *or*
-//arm-unknown-linux-gnueabi-gcc clear_zt_params.c -o clear_zt_params -l:/path/to/static/openssl/lib/libcrypto.a -I /path/to/static/openssl/include
+//arm-unknown-linux-gnueabi-gcc clear_zt_params.c -o clear_zt_params -L /path/to/openssl/lib -I /path/to/openssl/include
 
 #include <unistd.h>
 #include <stdio.h>
@@ -13,6 +13,19 @@
 #include <openssl/rc4.h>
 #include <openssl/bio.h> 
 
+enum TYPE {
+    TYPE_STRING = 0x01,
+    TYPE_HEX = 0x03
+};
+
+typedef struct Klv {
+    char key[4];
+    char len;
+    char type;
+    char val[20];
+} Klv;
+
+void add_klv(unsigned char** c, Klv klv);
 
 int main()
 {
@@ -60,7 +73,7 @@ int main()
 
 
     static const int LEN = 0x200;
-    unsigned char buf[LEN]; // = (unsigned char*) malloc(LEN);
+    unsigned char buf[LEN];
     lseek(fd, 0x460000, SEEK_SET);
     read(fd, buf, sizeof(buf));
 
@@ -71,58 +84,19 @@ int main()
     for (i = 0; i < 0x100; ++i)
       plaintext_payload[i] = 0xff;
 
-int b = 0;
-plaintext_payload[b++] = 0xA7;
-plaintext_payload[b++] = 0x80;
-plaintext_payload[b++] = 0xDD;
-plaintext_payload[b++] = 0xDB;
-plaintext_payload[b++] = 0x09;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x01;
-plaintext_payload[b++] = 0x38;
-plaintext_payload[b++] = 0x35;
-plaintext_payload[b++] = 0x34;
-plaintext_payload[b++] = 0x32;
-plaintext_payload[b++] = 0x37;
-plaintext_payload[b++] = 0x33;
-plaintext_payload[b++] = 0x35;
-plaintext_payload[b++] = 0x34;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x31;
-plaintext_payload[b++] = 0x8C;
-plaintext_payload[b++] = 0x16;
-plaintext_payload[b++] = 0xD1;
-plaintext_payload[b++] = 0x04;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x03;
-plaintext_payload[b++] = 0x01;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x25;
-plaintext_payload[b++] = 0xA4;
-plaintext_payload[b++] = 0xED;
-plaintext_payload[b++] = 0x70;
-plaintext_payload[b++] = 0x08;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x00;
-plaintext_payload[b++] = 0x01;
-plaintext_payload[b++] = 0x47;
-plaintext_payload[b++] = 0x65;
-plaintext_payload[b++] = 0x6E;
-plaintext_payload[b++] = 0x65;
-plaintext_payload[b++] = 0x72;
-plaintext_payload[b++] = 0x69;
-plaintext_payload[b++] = 0x63;
-plaintext_payload[b++] = 0x00;
+    unsigned char* c = plaintext_payload;
 
-    char* zt_id = (char*)&plaintext_payload[8];
+    Klv klv1 = {{0xA7, 0x80, 0xDD, 0xDB}, 9, TYPE_STRING, "xxxxxxxx"};
     srand(time(0));
-    sprintf(zt_id, "%08d", rand() % 100000000);
+    sprintf(&klv1.val[0], "%08d", rand() % 100000000);
+    add_klv(&c,klv1);
 
-    
+    Klv klv2 = {{0x31, 0x8C, 0x16, 0xD1}, 4, TYPE_HEX, {0x01, 0x00, 0x00, 0x00}};
+    add_klv(&c,klv2);
+
+    Klv klv3 = {{0x25, 0xA4, 0xED, 0x70}, 8, TYPE_STRING, "Generic"};
+    add_klv(&c,klv3);
+
     printf("plaintext_payload: ");
     for (i = 0; i < 0x100; ++i)
       printf("%02x", plaintext_payload[i]);
@@ -158,27 +132,33 @@ plaintext_payload[b++] = 0x00;
 
 
 
-  char answer;
-  printf("\nEnter 'y' to write to flash:\n");
-  scanf(" %c", &answer);
-  if (answer == 'y')
-  {
-  
-
-
-    erase_info_t ei;
-    ei.length = 0x10000;
-    ei.start = 0x460000;
+    char answer;
+    printf("\nEnter 'y' to write to flash:\n");
+    scanf(" %c", &answer);
+    if (answer == 'y')
+    {
+        erase_info_t ei;
+        ei.length = 0x10000;
+        ei.start = 0x460000;
     
-    ioctl(fd, MEMUNLOCK, &ei);
-    ioctl(fd, MEMERASE, &ei);
-    lseek(fd, 0x460000, SEEK_SET);
-    write(fd, buf, sizeof(buf));
-    printf("\nflash written!\n");
-  }
+        ioctl(fd, MEMUNLOCK, &ei);
+        ioctl(fd, MEMERASE, &ei);
+        lseek(fd, 0x460000, SEEK_SET);
+        write(fd, buf, sizeof(buf));
+        printf("\nflash written!\n");
+    }
 
     close(fd);
 
     return 0;
+}
+
+void add_klv(unsigned char** c, Klv klv)
+{
+    char lt[] = {klv.len, 0x00, 0x00, klv.type};
+    memcpy(&((*c)[0]),&klv.key,4);
+    memcpy(&((*c)[4]),&lt,4);
+    memcpy(&((*c)[8]),&klv.val,klv.len);
+    *c+=8+klv.len;
 }
 
