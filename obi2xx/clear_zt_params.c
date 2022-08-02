@@ -43,7 +43,7 @@ int main()
 
     bool mask;
     if (hw_vers[0] == 0x00 && hw_vers[1] == 0x01 && hw_vers[3] == 0xff) {
-      if (hw_vers[2] == 0x04)
+      if (hw_vers[2] == 0x04 || hw_vers[2] == 0x05)
         mask = true;
       else if (hw_vers[2] == 0x00 || hw_vers[2] == 0x01 || hw_vers[2] == 0x02 || hw_vers[2] == 0x03)
         mask = false;
