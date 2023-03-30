@@ -1,0 +1,3 @@
+#!/bin/sh
+
+mv /scratch/obizt.dat /scratch/obizt.dat.cleared
