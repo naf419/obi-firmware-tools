@@ -19,50 +19,128 @@ Map m;
 
 void dump_section(FILE* file, size_t location, unsigned char mask[6]);
 
-static const int OFFSET_MAC = 0x40100;
-static const int OFFSET_HWVERS = 0x40010;
-static const int OFFSET_PARAM_1 = 0x400000;
-static const int OFFSET_PARAM_2 = 0x420000;
-static const int OFFSET_PARAM_ZT = 0x460000;
+#if OBI_DEVICE == 200
+  #define OFFSET_MAC 0x40100
+  #define OFFSET_HWVERS 0x40010
+  #define OFFSET_PARAM_1 0x400000
+  #define OFFSET_PARAM_2 0x420000
+  #define OFFSET_PARAM_ZT 0x460000
+  #define MTD_DEV "/dev/mtd6ro"
+  #define PARAMS_DEV "/dev/mtd6ro"
+#elif OBI_DEVICE == 500
+  #define OFFSET_MAC 0xA0100
+  #define OFFSET_HWVERS 0xA0010
+  #define OFFSET_PARAM_1 0x1F00000
+  #define OFFSET_PARAM_2 0x1F80000
+  #define OFFSET_PARAM_ZT 0xB0000
+  #define MTD_DEV "/dev/mtd5ro"
+  #define PARAMS_DEV "/dev/mtd5ro"
+#elif OBI_DEVICE == 1000
+  #define OFFSET_MAC 0x300100
+  #define OFFSET_HWVERS 0x300010
+  #define OFFSET_PARAM_1 0x0
+  #define OFFSET_PARAM_2 0x20000
+  #define OFFSET_PARAM_ZT 0x340000
+  #define MTD_DEV "/dev/mtd11ro"
+  #define PARAMS_DEV "/scratch/obiparam.dat"
+#elif OBI_DEVICE == 2000
+  #define OFFSET_MAC 0x100100
+  #define OFFSET_HWVERS 0x100010
+  #define OFFSET_PARAM_1 0x0
+  #define OFFSET_PARAM_2 0x20000
+  #define OFFSET_PARAM_ZT 0x180000
+  #define MTD_DEV "/dev/mtd2ro"
+  #define PARAMS_DEV "/scratch/obiparam.dat"
+#elif OBI_DEVICE == 1000
+  #define OFFSET_MAC 0x300100
+  #define OFFSET_HWVERS 0x300010
+  #define OFFSET_PARAM_1 0x0
+  #define OFFSET_PARAM_2 0x20000
+  #define OFFSET_PARAM_ZT 0x340000
+  #define MTD_DEV "/dev/mtd11ro"
+  #define PARAMS_DEV "/scratch/obiparam.dat"
+#elif OBI_DEVICE == 500
+  #define OFFSET_MAC 0xA0100
+  #define OFFSET_HWVERS 0xA0010
+  #define OFFSET_PARAM_1 0x1F00000
+  #define OFFSET_PARAM_2 0x1F80000
+  #define OFFSET_PARAM_ZT 0xB0000
+  #define MTD_DEV "/dev/mtd5ro"
+  #define PARAMS_DEV "/dev/mtd5ro"
+#elif OBI_DEVICE == 230
+  #define OFFSET_PARAM_1 0x0
+  #define OFFSET_PARAM_2 0x80000
+  #define OFFSET_PARAM_ZT 0x0
+  #define MTD_DEV "/scratch/obizt.dat"
+  #define PARAMS_DEV "/scratch/obiparam.dat"
+#else
+  #error "Must define OBI_DEVICE to be 200/500/1000/2000"
+#endif
+
 static int debug = 0;
 
 int main(int argc, char** argv)
 {
     map_init();
 
-    FILE* fd;
+    char* mtd_name;
+    char* obiparam_name;
 
-    if (argc < 2)
-      fd = fopen("/dev/mtd6ro", "rb");
-    else
-      fd = fopen(argv[1], "rb");
+    FILE* fd_mtd;
 
+    if (argc == 3) {
+      mtd_name = argv[1];
+      obiparam_name = argv[2];
+    } else if (argc == 2) {
+      mtd_name = argv[1];
+      obiparam_name = argv[1];
+    } else {
+      mtd_name = MTD_DEV;
+      obiparam_name = PARAMS_DEV;
+    }
+
+    fd_mtd = fopen(mtd_name, "rb");
+    if (!fd_mtd) {
+      printf("ERROR: cannot open %s\n", mtd_name);
+      return 1;
+    }
+
+    int need_mask;
     unsigned char mac[6];
-    fseek(fd, OFFSET_MAC, SEEK_SET);
-    fread(mac, sizeof(mac), 1, fd);
-
     unsigned char hw_vers[4];
-    fseek(fd, OFFSET_HWVERS, SEEK_SET);
-    fread(hw_vers, sizeof(hw_vers), 1, fd);
+#if OBI_DEVICE != 230
+    fseek(fd_mtd, OFFSET_MAC, SEEK_SET);
+    fread(mac, sizeof(mac), 1, fd_mtd);
+
+    fseek(fd_mtd, OFFSET_HWVERS, SEEK_SET);
+    fread(hw_vers, sizeof(hw_vers), 1, fd_mtd);
 
     printf("mac: %02x%02x%02x%02x%02x%02x, hw_vers: %02x%02x%02x%02x\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
            hw_vers[0], hw_vers[1], hw_vers[2], hw_vers[3]);
 
-    int need_mask;
-    if (hw_vers[0] == 0x00 && hw_vers[1] == 0x01 && hw_vers[3] == 0xff) {
-      if (hw_vers[2] == 0x04 || hw_vers[2] == 0x05)
-        need_mask = 1;
-      else if (hw_vers[2] == 0x00 || hw_vers[2] == 0x01 || hw_vers[2] == 0x02 || hw_vers[2] == 0x03)
-        need_mask = 0;
-      else {
-        printf("unknown hw_vers\n");
-        return 1;
-      }
-    } else {
+    if (!(hw_vers[0] == 0x00 && hw_vers[1] == 0x01 && hw_vers[3] == 0xff)) {
       printf("unknown hw_vers\n");
       return 1;
     }
+#endif
+
+#if OBI_DEVICE == 200
+    if (hw_vers[2] == 0x04 || hw_vers[2] == 0x05)
+      need_mask = 1;
+    else if (hw_vers[2] == 0x00 || hw_vers[2] == 0x01 || hw_vers[2] == 0x02 || hw_vers[2] == 0x03)
+      need_mask = 0;
+    else {
+      printf("unknown hw_vers\n");
+      return 1;
+    }
+#elif OBI_DEVICE == 230
+    printf("assuming need_mask = false\n");
+    need_mask = 0;
+#else
+    printf("assuming need_mask = true\n");
+    need_mask = 1;
+#endif
 
     printf("using mac as rc4 key mask: %s\n", need_mask ? "true" : "false");
 
@@ -71,11 +149,18 @@ int main(int argc, char** argv)
       memcpy(&mask[0], &mac[0], 6);
     }
 
-    dump_section(fd, OFFSET_PARAM_1, mask);
-    dump_section(fd, OFFSET_PARAM_2, mask);
-    dump_section(fd, OFFSET_PARAM_ZT, mask);
+    FILE* fd_param = fopen(obiparam_name, "rb");
+    if (!fd_param) {
+      printf("WARN: cannot open %s\n", obiparam_name);
+    } else {
+      dump_section(fd_param, OFFSET_PARAM_1, mask);
+      dump_section(fd_param, OFFSET_PARAM_2, mask);
+      fclose(fd_param);
+    }
+
+    dump_section(fd_mtd, OFFSET_PARAM_ZT, mask);
     
-    fclose(fd);
+    fclose(fd_mtd);
 
     map_free(&m);
 
@@ -140,6 +225,7 @@ void warn_on_checksum_mismatch(unsigned char* data, int len, int expected) {
 
 void dump_section(FILE* file, size_t location, unsigned char mask[6])
 {
+    int i;
     printf("-- params at %08x --\n", location);
 
     static const int KEY_LENGTH = 15;
@@ -160,6 +246,22 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
                               section_header[13] << 8 |
                               section_header[12];
 
+    if (debug) {
+        printf("raw section header: ", SECTION_HEADER_LEN);
+        for (i = 0; i < SECTION_HEADER_LEN; ++i)
+          printf("%02x", section_header[i]);
+        printf("\n");
+    }
+
+    if (section_header[0] == 0xFF && section_header[1] == 0xFF &&
+        section_header[2] == 0xFF && section_header[3] == 0xFF) {
+        printf("WARN: empty section header\n");
+        return;
+    } else if (section_header[0] != 0xFD && section_header[0] != 0xFB) {
+        printf("ERROR: unknown packed encryption scheme: %02x\n", section_header[0]);
+        return;
+    }
+
     unsigned char* section_ciphertext = malloc(section_payload_len);
     unsigned char* section_plaintext  = malloc(section_payload_len);
 
@@ -168,7 +270,6 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
     memcpy(keytext, section_header, KEY_LENGTH);
 
     keytext[0] = 0xFD;
-    int i;
     for (i = 0; i < 6; ++i)
         keytext[i] &= mask[i];
 
@@ -179,11 +280,6 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
 
 
     if (debug) {
-        printf("raw section header: ", SECTION_HEADER_LEN);
-        for (i = 0; i < SECTION_HEADER_LEN; ++i)
-          printf("%02x", section_header[i]);
-        printf("\n");
-
         printf("raw section payload: ", section_payload_len);
         for (i = 0; i < section_payload_len; ++i) {
             printf("%02x", section_plaintext[i]);
@@ -219,6 +315,20 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
                                 param_header[9] << 8 |
                                 param_header[8];
 
+        if (debug) {
+            printf("@ %08x\n", current_loc);
+
+            printf("raw header: ", PARAM_HEADER_LEN);
+            for (i = 0; i < PARAM_HEADER_LEN; ++i)
+              printf("%02x", param_header[i]);
+            printf("\n");
+        }
+
+        if (param_header[0] != 0xFC) {
+            printf("ERROR: unknown unpacked encryption scheme: %02x\n", param_header[0]);
+            return;
+        }
+
         memcpy(keytext, param_header, KEY_LENGTH);
 
         unsigned char* param_ciphertext = malloc(param_payload_len);
@@ -236,13 +346,6 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
         RC4(&key, param_payload_len, param_ciphertext, param_plaintext);
 
         if (debug) {
-            printf("@ %08x\n", current_loc);
-
-            printf("raw header: ", PARAM_HEADER_LEN);
-            for (i = 0; i < PARAM_HEADER_LEN; ++i)
-              printf("%02x", param_header[i]);
-            printf("\n");
-
             printf("raw payload: ", param_payload_len);
             for (i = 0; i < param_payload_len; ++i) {
                 printf("%02x", param_plaintext[i]);
@@ -304,7 +407,7 @@ void addHashIndexed(Map* m, const char* fmt, int i)
 void map_init() {
     //hidden or non-backup params
     int i;
-    for (i = 1; i <= 4; ++i) {
+    for (i = 1; i <= 9; ++i) {
       addHashIndexed(&m, "VoiceService.1.VoiceProfile.%d.GVSIP", i);
       addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiRefreshToken", i);
       addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiAccessToken", i);
