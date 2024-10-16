@@ -118,11 +118,23 @@ int print_param(unsigned char* p)
 
 void print_params(unsigned char* plaintext, int payload_len)
 {
+    static int MIN_PARAM_LEN = 8;
     unsigned char* current = plaintext;
-    while (current < plaintext + payload_len && 
+    while (current + MIN_PARAM_LEN < plaintext + payload_len && 
            !(current[0] == 0xFF && current[1] == 0xFF && current[2] == 0xFF && current[3] == 0xFF))
     {
         current += print_param(current);
+    }
+}
+
+void warn_on_checksum_mismatch(unsigned char* data, int len, int expected) {
+    int checksum = 0;
+    int i;
+    for (i = 0; i < len; ++i) {
+        checksum += *((signed char*)&data[i]);
+    }
+    if (expected != checksum) {
+        printf("WARN: checksum mismatch. expect=%08x calc=%08x\n", expected, checksum);
     }
 }
 
@@ -173,17 +185,20 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
         printf("\n");
 
         printf("raw section payload: ", section_payload_len);
-        int checksum = 0;
         for (i = 0; i < section_payload_len; ++i) {
             printf("%02x", section_plaintext[i]);
-            checksum += *((signed char*)&section_plaintext[i]);
         }
         printf("\n");
-
-        printf("checksum: %08x\n", checksum);
     }
 
     print_params(section_plaintext, section_payload_len);
+
+    int section_checksum = section_header[11] << 24 |
+                           section_header[10] << 16 |
+                           section_header[9] << 8 |
+                           section_header[8];
+
+    warn_on_checksum_mismatch(section_plaintext, section_payload_len, section_checksum);
 
     free(section_ciphertext);
     free(section_plaintext);
@@ -229,15 +244,18 @@ void dump_section(FILE* file, size_t location, unsigned char mask[6])
             printf("\n");
 
             printf("raw payload: ", param_payload_len);
-            int checksum = 0;
             for (i = 0; i < param_payload_len; ++i) {
                 printf("%02x", param_plaintext[i]);
-                checksum += *((signed char*)&param_plaintext[i]);
             }
             printf("\n");
-
-            printf("checksum: %08x\n", checksum);
         }
+
+        int param_checksum = param_header[15] << 24 |
+                             param_header[14] << 16 |
+                             param_header[13] << 8 |
+                             param_header[12];
+
+        warn_on_checksum_mismatch(param_plaintext, param_payload_len, param_checksum);
 
         print_params(param_plaintext, param_payload_len);
 
