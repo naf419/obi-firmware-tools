@@ -405,44 +405,6 @@ void addHashIndexed(Map* m, const char* fmt, int i)
 }
 
 void map_init() {
-    //hidden or non-backup params
-    int i;
-    for (i = 1; i <= 9; ++i) {
-      addHashIndexed(&m, "VoiceService.1.VoiceProfile.%d.GVSIP", i);
-      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiRefreshToken", i);
-      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiAccessToken", i);
-      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GApiInitAccessToken", i);
-      addHashIndexed(&m, "VoiceService.1.VoiceProfile.1.Line.%d.X_GoogleClientInfo", i);
-    }
-
-    addHash(&m, "X_DeviceManagement.License.LicenseURL");
-
-    addHash(&m, "SystemInfo.DisableBT");
-    addHash(&m, "SystemInfo.DisableFXO");
-    addHash(&m, "SystemInfo.DisableFXS1");
-    addHash(&m, "SystemInfo.DisableFXS2");
-    addHash(&m, "SystemInfo.DisableGVProv");
-    addHash(&m, "SystemInfo.DisableRouterCfg");
-    addHash(&m, "SystemInfo.SkypeDisable");
-    addHash(&m, "SystemInfo.X_GVAutoSetting");
-
-    addHash(&m, "VoiceService.1.X_OBP.Forbidden");
-    addHash(&m, "VoiceService.1.X_OBP.BasicLicense");
-    addHash(&m, "VoiceService.1.X_OBP.NoLicense");
-    addHash(&m, "VoiceService.1.X_OBP.License");
-
-    for (i = 0; i < 8; ++i) {
-        addHashIndexed(&m, "X_DeviceManagement.Provisioning.SPRM%d", i);
-        addHashIndexed(&m, "X_DeviceManagement.ITSPProvisioning.SPRM%d", i);
-    }
-
-    for (i = 4; i <=31; ++i) {
-        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.Value", i);
-        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.ExpandIn", i);
-        addHashIndexed(&m, "X_DeviceManagement.X_UserDefinedMacro.%d.SyntaxCheckResult", i);
-    }
-
-    //params in backup
     #include "param_dump_keys.h"
 };
 
