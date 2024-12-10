@@ -22,18 +22,22 @@ int get_certs(SSL_CTX *ctx) {
   int err_count = 0;
   int fd = open(FNAME, O_RDONLY);
   if (!fd) {
+#ifdef TEST
     printf("GET_CERTS: cannot open %s\n", FNAME);
+#endif
     goto err;
   }
   struct stat s;
   if (fstat(fd, &s)) {
-    printf("GET_CERTS: cannot fstat %s\n", FNAME);
+    printf("ERR\n"); // <-- no room for pretty strings
     goto err;
   }
   off_t len = s.st_size;
   void* buf = mmap(0, len, PROT_READ, MAP_PRIVATE, fd, 0);
   if (!buf) {
+#ifdef TEST
     printf("GET_CERTS: cannot mmap len %d\n", len);
+#endif
     goto err;
   }
   X509_STORE* store = (X509_STORE*) SSL_CTX_get_cert_store(ctx);
@@ -59,7 +63,7 @@ int get_certs(SSL_CTX *ctx) {
   //yes im leaking this fd, but just to save space in binary
   //close(fd);
 err:
-  printf("GET_CERTS: %d CA certificates loaded and %d errors, reading from %s\n", count, err_count, FNAME);
+  printf("GET_CERTS: %d (%d)\n", count, err_count);
   return count;
 	
 }
